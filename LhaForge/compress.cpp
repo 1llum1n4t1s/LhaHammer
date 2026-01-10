@@ -742,21 +742,19 @@ TEST(compress, compressOneArchive)
 
 #endif
 
-void compress_helper(
-	const std::vector<std::filesystem::path> &givenFiles,
-	LF_ARCHIVE_FORMAT format,
-	LF_WRITE_OPTIONS options,
-	const CMDLINEINFO* lpCmdLineInfo,
-	ARCLOG &arcLog,
-	LF_COMPRESS_ARGS &args,
-	ILFProgressHandler &progressHandler,
-	std::shared_ptr<ILFPassphrase> passphraseHandler
-	)
+/// Validates compression sources against archive format capabilities
+///
+/// Some archive formats (like .gz, .bz2) only support single file compression.
+/// This function checks whether the given sources are compatible with the format.
+/// Raises exception with user-visible error if incompatible.
+///
+/// \param sources Enumerated files to compress
+/// \param format Target archive format
+/// \throws LF_EXCEPTION if format incompatibility is detected
+static void validateCompressionSources(
+	const COMPRESS_SOURCES& sources,
+	const LF_ARCHIVE_FORMAT& format)
 {
-	// get common path for base path
-	COMPRESS_SOURCES sources = buildCompressSources(args, givenFiles);
-
-	//check if the format can contain only one file
 	const auto& cap = CLFArchive::get_compression_capability(format);
 	if (!cap.contains_multiple_files) {
 		size_t fileCount = 0;
@@ -765,7 +763,6 @@ void compress_helper(
 				fileCount++;
 			}
 			if (fileCount >= 2) {
-				//warn that archiving is not supported for this file
 				ErrorMessage(UtilLoadString(IDS_ERROR_SINGLE_FILE_ONLY));
 				RAISE_EXCEPTION(UtilLoadString(IDS_ERROR_SINGLE_FILE_ONLY));
 			}
@@ -775,8 +772,26 @@ void compress_helper(
 			RAISE_EXCEPTION(UtilLoadString(IDS_ERROR_FILE_NOT_SPECIFIED));
 		}
 	}
+}
 
-	//output directory
+/// Determines where compressed archive should be created
+///
+/// Resolves output directory in following priority:
+/// 1. Command line explicit --output-dir argument
+/// 2. Parent directory of --output-file argument
+/// 3. Configuration setting (same dir, desktop, or specific dir)
+///
+/// Note: This function does NOT prompt user. Directory confirmation is handled separately.
+///
+/// \param givenFiles Files selected for compression (used for config default)
+/// \param args Configuration arguments including OutputDirType and OutputDirUserSpecified
+/// \param lpCmdLineInfo Command line parameters (can be nullptr)
+/// \return Resolved output directory path
+static std::filesystem::path determineOutputDirectory(
+	const std::vector<std::filesystem::path> &givenFiles,
+	const LF_COMPRESS_ARGS& args,
+	const CMDLINEINFO* lpCmdLineInfo)
+{
 	std::filesystem::path pathOutputDir;
 	if (lpCmdLineInfo && !lpCmdLineInfo->OutputDir.empty()) {
 		pathOutputDir = lpCmdLineInfo->OutputDir;
@@ -791,6 +806,26 @@ void compress_helper(
 				args.compress.OutputDirUserSpecified.c_str());
 		}
 	}
+	return pathOutputDir;
+}
+
+void compress_helper(
+	const std::vector<std::filesystem::path> &givenFiles,
+	LF_ARCHIVE_FORMAT format,
+	LF_WRITE_OPTIONS options,
+	const CMDLINEINFO* lpCmdLineInfo,
+	ARCLOG &arcLog,
+	LF_COMPRESS_ARGS &args,
+	ILFProgressHandler &progressHandler,
+	std::shared_ptr<ILFPassphrase> passphraseHandler
+	)
+{
+	// Get compression sources and validate them
+	COMPRESS_SOURCES sources = buildCompressSources(args, givenFiles);
+	validateCompressionSources(sources, format);
+
+	// Determine output directory (considering command line and config settings)
+	std::filesystem::path pathOutputDir = determineOutputDirectory(givenFiles, args, lpCmdLineInfo);
 
 	// Use shared utility to confirm and adjust output directory
 	pathOutputDir = LF_confirm_and_adjust_output_dir(

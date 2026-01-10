@@ -82,6 +82,31 @@ TEST(FileOperation, UtilGetTempPath) {
 
 std::filesystem::path UtilGetTemporaryFileName()
 {
+	// Use Windows API for atomic file creation to avoid TOCTOU vulnerability
+	// This prevents race conditions where file is checked empty but becomes occupied
+	for (size_t index = 0; ;index++){
+		auto pathStr = Format(L"%s\\tmp%Iu.tmp", UtilGetTempPath().c_str(), index);
+		HANDLE hFile = CreateFileW(
+			pathStr.c_str(),
+			GENERIC_READ | GENERIC_WRITE,
+			0,  // No sharing
+			nullptr,
+			CREATE_NEW,  // Fail if file already exists (atomic)
+			FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE,
+			nullptr);
+
+		if (hFile != INVALID_HANDLE_VALUE) {
+			CloseHandle(hFile);
+			return std::filesystem::path(pathStr).make_preferred();
+		}
+
+		if (GetLastError() != ERROR_FILE_EXISTS) {
+			// Unexpected error, use traditional method as fallback
+			break;
+		}
+	}
+
+	// Fallback: Use traditional method
 	for (size_t index = 0; ;index++){
 		auto path = std::filesystem::path(UtilGetTempPath()) / Format(L"tmp%d.tmp", index);
 		if (!std::filesystem::exists(path)) {

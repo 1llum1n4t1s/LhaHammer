@@ -132,6 +132,17 @@ enum class PRE_EXTRACT_CHECK :int {
 	multipleEntries,
 };
 
+/// Analyzes archive structure to determine optimal extraction behavior
+///
+/// Scans all entries in archive to classify its contents:
+/// - singleDir: All files are under a single root directory (e.g., archive.zip contains /dir/file1.txt, /dir/file2.txt)
+/// - singleFile: Archive contains exactly one file
+/// - multipleEntries: Files are scattered in multiple directories or at root level
+///
+/// \param arc Archive file to analyze
+/// \param progressHandler Receives progress notifications during scan
+/// \return Tuple of (archive_structure_type, base_directory_name)
+///         base_directory_name is set only for singleDir type
 std::tuple<PRE_EXTRACT_CHECK, std::filesystem::path /*baseDirName*/>
 preExtractCheck(ILFArchiveFile &arc, ILFScanProgressHandler& progressHandler)
 {
