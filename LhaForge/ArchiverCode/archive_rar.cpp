@@ -227,8 +227,9 @@ struct CLFArchiveRAR::INTERNAL
 		switch (msg) {
 		case UCM_CHANGEVOLUMEW:
 			if (P2 == RAR_VOL_ASK) {
-				//Need to ask user for new file path
-				//TODO: not implemented
+				// Multi-volume RAR support: Prompt user for next volume file path
+				// TODO: Implement dialog to ask user for next volume location
+				// For now, return -1 to indicate volume change is not supported
 				return -1;
 			}
 			return 0;

@@ -792,29 +792,12 @@ void compress_helper(
 		}
 	}
 
-	// Warn if output is on network or on a removable disk
-	for (;;) {
-		if (LF_confirm_output_dir_type(args.general, pathOutputDir)) {
-			break;
-		} else {
-			// Need to change path
-			CLFShellFileOpenDialog dlg(pathOutputDir.c_str(), FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS);
-			if (IDOK == dlg.DoModal()) {
-				CString tmp;
-				dlg.GetFilePath(tmp);
-				pathOutputDir = tmp.operator LPCWSTR();
-				bool keepConfig = (GetKeyState(VK_SHIFT) < 0);	//TODO
-				if (keepConfig) {
-					args.compress.OutputDirType = (int)OUTPUT_TO::SpecificDir;
-					args.compress.OutputDirUserSpecified = pathOutputDir.c_str();
-				}
-			} else {
-				CANCEL_EXCEPTION();
-			}
-		}
-	}
-	// Confirm to make extract dir if it does not exist
-	LF_ask_and_make_sure_output_dir_exists(pathOutputDir, (LOSTDIR)args.general.OnDirNotFound);
+	// Use shared utility to confirm and adjust output directory
+	pathOutputDir = LF_confirm_and_adjust_output_dir(
+		args.general,
+		pathOutputDir,
+		args.compress.OutputDirType,
+		args.compress.OutputDirUserSpecified);
 
 	//archive file title
 	std::wstring defaultArchiveTitle;
@@ -960,7 +943,9 @@ bool GUI_compress_multiple_files(
 				progressHandler,
 				std::make_shared<CLFPassphraseGUI>()
 			);
-		} catch (const LF_EXCEPTION &) {
+		} catch (const LF_EXCEPTION &ex) {
+			// Log compression error and continue with next archive
+			arcLog(L"", UtilLoadString(IDS_ARCLOG_ERROR) + L": " + UTF8_to_UNICODE(ex.what()));
 		}
 	}
 	progressHandler.end();
@@ -1147,16 +1132,24 @@ TEST(compress, RAW_FILE_READER)
 
 
 /*
-
-TEST(compress, GUI_compress_multiple_files)
-{
-	bool GUI_compress_multiple_files(
-		const std::vector<std::wstring> &givenFiles,
-		LF_ARCHIVE_FORMAT format,
-		LF_WRITE_OPTIONS options,
-		CMDLINEINFO& CmdLineInfo);
-	TODO;
-}
+// TODO: Implement test for GUI_compress_multiple_files
+// This test should verify:
+// 1. Multiple files are correctly added to archive
+// 2. Compression settings are applied correctly
+// 3. Output filename is determined correctly
+// 4. Archive is created at the specified location
+// 5. Error handling for invalid files or paths
+//
+// TEST(compress, GUI_compress_multiple_files)
+// {
+//     std::vector<std::wstring> testFiles = { L"file1.txt", L"file2.txt" };
+//     LF_ARCHIVE_FORMAT format = LF_ARCHIVE_FORMAT::ZIP;
+//     LF_WRITE_OPTIONS options;
+//     CMDLINEINFO cmdLine;
+//
+//     bool result = GUI_compress_multiple_files(testFiles, format, options, cmdLine);
+//     EXPECT_TRUE(result);
+// }
 */
 
 TEST(compress, copyArchive)	//or maybe test for CLFArchive

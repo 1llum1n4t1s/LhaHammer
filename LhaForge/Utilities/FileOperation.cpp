@@ -520,7 +520,7 @@ std::filesystem::path UtilGetModuleDirectoryPath()
 
 #ifdef UNIT_TEST
 TEST(FileOperation, UtilGetModulePath_UtilGetModuleDirectoryPath) {
-	//TODO: is there any better test?
+	// Test that module paths exist and are valid
 	EXPECT_FALSE(UtilGetModulePath().empty());
 	EXPECT_TRUE(std::filesystem::exists(UtilGetModulePath()));
 	EXPECT_TRUE(std::filesystem::exists(UtilGetModuleDirectoryPath()));

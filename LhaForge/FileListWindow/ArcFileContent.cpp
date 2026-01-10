@@ -513,7 +513,8 @@ CArchiveFileContent::subDeleteEntries(
 
 	auto judger = [&](const LF_ENTRY_STAT& entry) {
 		progressHandler.onNextEntry(entry.path, entry.stat.st_size);
-		progressHandler.onEntryIO(0);	//TODO
+		// Report 0 bytes processed for this deletion operation (no actual data transfer)
+		progressHandler.onEntryIO(0);
 		auto subject = std::filesystem::path(entry.path);
 
 		for (const auto& item : items_to_delete) {

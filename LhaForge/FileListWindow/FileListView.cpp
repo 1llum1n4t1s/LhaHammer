@@ -599,7 +599,7 @@ LRESULT CFileListView::OnBeginDrag(LPNMHDR pnmh)
 	::SetForegroundWindow(m_hFrameWnd);
 
 	if(FAILED(hr)){
-		//TODO
+		// Extraction failed, display detailed error log
 		CLogListDialog LogDlg(L"Log");
 		std::vector<ARCLOG> logs = { arcLog };
 		LogDlg.SetLogArray(logs);

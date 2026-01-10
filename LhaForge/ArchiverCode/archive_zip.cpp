@@ -225,7 +225,12 @@ struct CLFArchiveZIP::INTERNAL {
 	std::shared_ptr<ILFPassphrase> passphrase_callback;
 	bool isMultipartFile() const{
 		if (open_mode & MZ_OPEN_MODE_READ) {
-			mz_stream_LF* lff = (mz_stream_LF*)stream;
+			// Cast stream to mz_stream_LF with validation
+			// Note: This assumes stream is always mz_stream_LF when in READ mode
+			mz_stream_LF* lff = reinterpret_cast<mz_stream_LF*>(stream);
+			if (!lff) {
+				return false;  // Safety check
+			}
 			return lff->handle.getNumFiles() > 1;
 		} else {
 			return false;
