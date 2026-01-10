@@ -1,0 +1,179 @@
+<Window x:Class="LhaHammer.Views.ShellIntegrationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Shell Integration Settings"
+        Height="600"
+        Width="700"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Administrator Status -->
+        <Border Grid.Row="0"
+                Background="{StaticResource PrimaryLightBrush}"
+                Padding="10"
+                Margin="0,0,0,20"
+                CornerRadius="5"
+                Visibility="{Binding IsAdministrator, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="✓"
+                          FontSize="16"
+                          FontWeight="Bold"
+                          Foreground="{StaticResource PrimaryBrush}"
+                          Margin="0,0,10,0"/>
+                <TextBlock Text="Running with Administrator privileges"
+                          VerticalAlignment="Center"
+                          FontWeight="SemiBold"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="0"
+                Background="#FFF3CD"
+                BorderBrush="#FFC107"
+                BorderThickness="1"
+                Padding="10"
+                Margin="0,0,0,20"
+                CornerRadius="5"
+                Visibility="{Binding IsAdministrator, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal" Visibility="Collapsed">
+                <TextBlock Text="⚠"
+                          FontSize="16"
+                          FontWeight="Bold"
+                          Foreground="#FF9800"
+                          Margin="0,0,10,0"/>
+                <TextBlock VerticalAlignment="Center">
+                    <Run Text="Administrator privileges required to modify shell integration."/>
+                    <LineBreak/>
+                    <Run Text="The application will restart with elevated privileges when you make changes."/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+
+        <!-- Shell Extension Section -->
+        <GroupBox Grid.Row="1"
+                  Header="Windows Explorer Context Menu"
+                  Margin="0,0,0,20">
+            <StackPanel Margin="10">
+                <TextBlock TextWrapping="Wrap"
+                          Margin="0,0,0,10">
+                    Enable context menu integration to add LhaHammer commands to Windows Explorer right-click menu.
+                </TextBlock>
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <TextBlock Text="Status: "
+                              FontWeight="SemiBold"
+                              VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding IsShellExtensionEnabled, Converter={StaticResource StatusConverter}}"
+                              VerticalAlignment="Center"
+                              Margin="5,0,0,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal"
+                           Margin="0,15,0,0">
+                    <Button Content="Enable Context Menu"
+                           Command="{Binding EnableShellExtensionCommand}"
+                           Style="{StaticResource PrimaryButton}"
+                           Width="150"
+                           IsEnabled="{Binding IsShellExtensionEnabled, Converter={StaticResource InverseBoolConverter}}"/>
+                    <Button Content="Disable Context Menu"
+                           Command="{Binding DisableShellExtensionCommand}"
+                           Style="{StaticResource SecondaryButton}"
+                           Width="150"
+                           Margin="10,0,0,0"
+                           IsEnabled="{Binding IsShellExtensionEnabled}"/>
+                </StackPanel>
+
+                <TextBlock TextWrapping="Wrap"
+                          Margin="0,15,0,0"
+                          FontSize="11"
+                          Foreground="{StaticResource SecondaryTextBrush}">
+                    Context menu commands include: Extract Here, Extract to Folder, Test Archive, Compress to ZIP/7z/TAR.GZ
+                </TextBlock>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- File Associations Section -->
+        <GroupBox Grid.Row="2"
+                  Header="File Associations">
+            <Grid Margin="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0"
+                          TextWrapping="Wrap"
+                          Margin="0,0,0,10">
+                    Select archive formats to associate with LhaHammer. Double-clicking these files will open them in LhaHammer.
+                </TextBlock>
+
+                <DataGrid Grid.Row="1"
+                         ItemsSource="{Binding FileAssociations}"
+                         AutoGenerateColumns="False"
+                         CanUserAddRows="False"
+                         CanUserDeleteRows="False"
+                         GridLinesVisibility="Horizontal"
+                         AlternatingRowBackground="#F5F5F5"
+                         Margin="0,0,0,10">
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="Associate"
+                                               Binding="{Binding IsAssociated, UpdateSourceTrigger=PropertyChanged}"
+                                               Width="80"/>
+                        <DataGridTextColumn Header="Format"
+                                           Binding="{Binding FormatName}"
+                                           IsReadOnly="True"
+                                           Width="100"/>
+                        <DataGridTextColumn Header="Extensions"
+                                           Binding="{Binding Extensions}"
+                                           IsReadOnly="True"
+                                           Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <StackPanel Grid.Row="2"
+                           Orientation="Horizontal">
+                    <Button Content="Apply Associations"
+                           Command="{Binding ApplyFileAssociationsCommand}"
+                           Style="{StaticResource PrimaryButton}"
+                           Width="150"/>
+                    <Button Content="Remove All Associations"
+                           Command="{Binding RemoveFileAssociationsCommand}"
+                           Style="{StaticResource SecondaryButton}"
+                           Width="180"
+                           Margin="10,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- Status Message -->
+        <Border Grid.Row="3"
+                Background="{StaticResource SurfaceBrush}"
+                Padding="10"
+                Margin="0,20,0,0"
+                CornerRadius="3"
+                Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
+            <TextBlock Text="{Binding StatusMessage}"
+                      TextWrapping="Wrap"/>
+        </Border>
+
+        <!-- Close Button -->
+        <Button Grid.Row="4"
+               Content="Close"
+               Style="{StaticResource SecondaryButton}"
+               Width="100"
+               HorizontalAlignment="Right"
+               Margin="0,10,0,0"
+               Click="CloseButton_Click"/>
+    </Grid>
+</Window>

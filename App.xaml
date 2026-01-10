@@ -12,6 +12,9 @@
 
             <!-- Converters -->
             <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <converters:InverseBooleanConverter x:Key="InverseBoolConverter"/>
+            <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+            <converters:StatusConverter x:Key="StatusConverter"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

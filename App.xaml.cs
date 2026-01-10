@@ -2,6 +2,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using LhaHammer.CommandLine;
 using LhaHammer.Services;
+using LhaHammer.ShellIntegration;
 using LhaHammer.ViewModels;
 using LhaHammer.Views;
 
@@ -47,14 +48,17 @@ public partial class App : Application
         services.AddSingleton<IArchiveService, ArchiveService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IFileOperationService, FileOperationService>();
+        services.AddSingleton<ShellIntegrationService>();
 
         // Register ViewModels
         services.AddTransient<MainWindowViewModel>();
         services.AddTransient<ConfigurationViewModel>();
         services.AddTransient<ProgressViewModel>();
+        services.AddTransient<ShellIntegrationViewModel>();
 
         // Register Views
         services.AddSingleton<MainWindow>();
+        services.AddTransient<ShellIntegrationWindow>();
     }
 
     protected override void OnExit(ExitEventArgs e)
