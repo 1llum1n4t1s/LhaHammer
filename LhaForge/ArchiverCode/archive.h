@@ -212,39 +212,84 @@ struct LF_ENTRY_STAT {
 
 
 struct LF_COMPRESS_ARGS;
+
+/// Archive file abstraction interface
+/// Provides read and write operations for archive files in multiple formats.
+/// An archive must be in one of two modes: read_open or write_open, not both.
+///
+/// Usage:
+/// - Reading: call read_open(), iterate with read_entry_begin/next, read_file_entry_block(), close()
+/// - Writing: call write_open(), add entries with add_file_entry/add_directory_entry(), close()
 class ILFArchiveFile
 {
 	DISALLOW_COPY_AND_ASSIGN(ILFArchiveFile);
 public:
 	ILFArchiveFile() {}
 	virtual ~ILFArchiveFile() {}
+
+	/// Opens archive for reading
+	/// \param file Path to archive file
+	/// \param passphrase Password callback for encrypted archives (may be nullptr)
+	/// \throws LF_EXCEPTION if file is not a valid archive or cannot be opened
 	virtual void read_open(const std::filesystem::path& file, std::shared_ptr<ILFPassphrase> passphrase) = 0;
+
+	/// Opens archive for writing (compression)
+	/// \param file Output path for new archive
+	/// \param format Archive format (ZIP, 7Z, RAR, etc.)
+	/// \param options Format-specific compression options
+	/// \param args Compression arguments (passphrase, thread count, etc.)
+	/// \param passphrase Password callback for encrypted archives
 	virtual void write_open(const std::filesystem::path& file, LF_ARCHIVE_FORMAT format, LF_WRITE_OPTIONS options, const LF_COMPRESS_ARGS& args, std::shared_ptr<ILFPassphrase> passphrase) = 0;
+
+	/// Closes the archive file and flushes any pending writes
 	virtual void close() = 0;
+
+	/// Returns the path of the open archive file
 	virtual std::filesystem::path get_archive_path()const = 0;
 
+	/// Tests whether this archive format supports modification (adding/removing entries)
 	virtual bool is_modify_supported() const = 0;
-	//make a copy, and returns in "write_open" state
+
+	/// Creates a copy of the archive with optional entry filtering
+	/// Used for operations like "modify archive by removing entries"
+	/// \param dest_path Destination path for the copy
+	/// \param args Compression settings for the copy
+	/// \param false_to_skip Predicate function: return false to exclude entry from copy
+	/// \return Archive in write_open state, ready for additional entries
 	virtual std::unique_ptr<ILFArchiveFile> make_copy_archive(
 		const std::filesystem::path& dest_path,
 		const LF_COMPRESS_ARGS& args,
 		std::function<bool(const LF_ENTRY_STAT&)> false_to_skip) = 0;
 
-	//archive property
-	virtual LF_ARCHIVE_FORMAT get_format() = 0;	//works if file is opened
-	virtual std::wstring get_format_name() = 0;	//works if file is opened
+	// Archive properties
+	/// Returns the format of the currently open archive
+	virtual LF_ARCHIVE_FORMAT get_format() = 0;
+	/// Returns human-readable format name (e.g., "ZIP archive")
+	virtual std::wstring get_format_name() = 0;
+	/// Returns available compression options for this archive type
 	virtual std::vector<LF_COMPRESS_CAPABILITY> get_compression_capability()const = 0;
 
-	//entry seek; returns null if it reached EOF; valid for "read_open"ed archive
-	virtual LF_ENTRY_STAT* read_entry_begin() = 0;	//rewinds to start of file
+	// Reading operations (only valid after read_open)
+	/// Begins iteration over archive entries, resets to first entry
+	/// \return First entry or nullptr if archive is empty
+	virtual LF_ENTRY_STAT* read_entry_begin() = 0;
+	/// Advances to next entry in archive
+	/// \return Next entry or nullptr if reached end of archive
 	virtual LF_ENTRY_STAT* read_entry_next() = 0;
+	/// Finalizes entry iteration and releases resources
 	virtual void read_entry_end() = 0;
 
-	//read entry block; should be called until returned buffer becomes eof
+	/// Reads compressed file content in blocks
+	/// Call repeatedly until data_receiver receives empty buffer (eof condition)
+	/// \param data_receiver Callback receiving (buffer_ptr, size, offset_info)
 	virtual void read_file_entry_block(std::function<void(const void*, size_t, const offset_info*)> data_receiver) = 0;
 
-	//write entry
+	// Writing operations (only valid after write_open)
+	/// Adds a file entry to the archive
+	/// \param entry File metadata (path, size, timestamps, etc.)
+	/// \param dataProvider Callback providing file content in blocks
 	virtual void add_file_entry(const LF_ENTRY_STAT&, std::function<LF_BUFFER_INFO()> dataProvider) = 0;
+	/// Adds a directory entry to the archive
 	virtual void add_directory_entry(const LF_ENTRY_STAT&) = 0;
 };
 

@@ -99,30 +99,12 @@ std::filesystem::path determineExtractBaseDir(
 		args.extract.OutputDirUserSpecified.c_str(),
 		args.output_dir_callback);
 
-	// Warn if output is on network or on a removable disk
-	for (;;) {
-		if (LF_confirm_output_dir_type(args.general, outputDir)) {
-			break;
-		} else {
-			// Need to change path
-			CLFShellFileOpenDialog dlg(outputDir.c_str(), FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS);
-			if (IDOK == dlg.DoModal()) {
-				CString tmp;
-				dlg.GetFilePath(tmp);
-				std::filesystem::path pathOutputDir = tmp.operator LPCWSTR();
-				outputDir = pathOutputDir;
-				bool keepConfig = (GetKeyState(VK_SHIFT) < 0);	//TODO
-				if (keepConfig) {
-					args.extract.OutputDirType = (int)OUTPUT_TO::SpecificDir;
-					args.extract.OutputDirUserSpecified = pathOutputDir.c_str();
-				}
-			} else {
-				CANCEL_EXCEPTION();
-			}
-		}
-	}
-	// Confirm to make extract dir if it does not exist
-	LF_ask_and_make_sure_output_dir_exists(outputDir, (LOSTDIR)args.general.OnDirNotFound);
+	// Use shared utility to confirm and adjust output directory
+	outputDir = LF_confirm_and_adjust_output_dir(
+		args.general,
+		outputDir,
+		args.extract.OutputDirType,
+		args.extract.OutputDirUserSpecified);
 
 	return outputDir;
 }
@@ -150,6 +132,17 @@ enum class PRE_EXTRACT_CHECK :int {
 	multipleEntries,
 };
 
+/// Analyzes archive structure to determine optimal extraction behavior
+///
+/// Scans all entries in archive to classify its contents:
+/// - singleDir: All files are under a single root directory (e.g., archive.zip contains /dir/file1.txt, /dir/file2.txt)
+/// - singleFile: Archive contains exactly one file
+/// - multipleEntries: Files are scattered in multiple directories or at root level
+///
+/// \param arc Archive file to analyze
+/// \param progressHandler Receives progress notifications during scan
+/// \return Tuple of (archive_structure_type, base_directory_name)
+///         base_directory_name is set only for singleDir type
 std::tuple<PRE_EXTRACT_CHECK, std::filesystem::path /*baseDirName*/>
 preExtractCheck(ILFArchiveFile &arc, ILFScanProgressHandler& progressHandler)
 {
@@ -248,14 +241,20 @@ std::filesystem::path determineExtractDir(
 	const LF_EXTRACT_ARGS& args)
 {
 	bool needToCreateDir = false;
+	// Cache preExtractCheck result to avoid scanning archive multiple times
+	// (only needed if CreateDir setting requires it)
+	std::optional<std::pair<PRE_EXTRACT_CHECK, std::wstring>> checkResult;
+
 	switch ((EXTRACT_CREATE_DIR)args.extract.CreateDir) {
 	case EXTRACT_CREATE_DIR::Never:
 		needToCreateDir = false;
 		break;
 	case EXTRACT_CREATE_DIR::SkipIfSingleFileOrDir:
 	{
-		auto [result, baseDirName] = preExtractCheck(arc, progress);
-		if (PRE_EXTRACT_CHECK::multipleEntries != result) {
+		if (!checkResult) {
+			checkResult = preExtractCheck(arc, progress);
+		}
+		if (PRE_EXTRACT_CHECK::multipleEntries != checkResult->first) {
 			needToCreateDir = false;
 		} else {
 			needToCreateDir = true;
@@ -264,8 +263,10 @@ std::filesystem::path determineExtractDir(
 	}
 	case EXTRACT_CREATE_DIR::SkipIfSingleDirectory:
 	{
-		auto [result, baseDirName] = preExtractCheck(arc, progress);
-		if (PRE_EXTRACT_CHECK::singleDir == result) {
+		if (!checkResult) {
+			checkResult = preExtractCheck(arc, progress);
+		}
+		if (PRE_EXTRACT_CHECK::singleDir == checkResult->first) {
 			needToCreateDir = false;
 		} else {
 			needToCreateDir = true;
@@ -687,7 +688,8 @@ bool GUI_extract_multiple_files(
 	}
 
 	UINT64 totalFiles = archive_files.size();
-	//TODO: queueDialog
+	// Future enhancement: Add queue dialog to show extraction queue before starting
+	// This would allow users to review all archives to be extracted and their destinations
 	std::vector<ARCLOG> logs;
 	for (const auto &archive_path : archive_files) {
 		progressHandler.reset();

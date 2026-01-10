@@ -56,6 +56,16 @@ struct CConfigGeneral;
 bool LF_confirm_output_dir_type(const CConfigGeneral &Conf, const std::filesystem::path& outputDirIn);
 void LF_ask_and_make_sure_output_dir_exists(const std::filesystem::path& outputDir, LOSTDIR OnDirNotFound);
 
+// Shared utility for output directory confirmation and user adjustment
+// Returns the final output directory after user confirmation and optional changes
+// outputDirConfig: OUTPUT_TO enum value for directory type
+// outputDirUserSpecified: User-specified directory path (may be updated)
+// Returns: The confirmed output directory
+std::filesystem::path LF_confirm_and_adjust_output_dir(
+	const CConfigGeneral &generalConfig,
+	std::filesystem::path& currentOutputDir,
+	int& outputDirType,
+	std::wstring& outputDirUserSpecified);
 
 //prepare envInfo map for UtilExpandTemplateString()
 std::map<std::wstring, std::wstring> LF_make_expand_information(const wchar_t* lpOpenDir, const wchar_t* lpOutputFile);

@@ -334,7 +334,7 @@ HRESULT CFileListFrame::OpenArchiveFile(const std::filesystem::path& fname,bool 
 			try {
 				m_TabClientWnd->OpenArchiveInTab(fname, strMutex, hMutex, arcLog);
 			} catch (...) {
-				//TODO
+				// Archive opening failed, display error log
 				ErrorMessage(arcLog.toString());
 			}
 

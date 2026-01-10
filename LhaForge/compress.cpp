@@ -742,21 +742,19 @@ TEST(compress, compressOneArchive)
 
 #endif
 
-void compress_helper(
-	const std::vector<std::filesystem::path> &givenFiles,
-	LF_ARCHIVE_FORMAT format,
-	LF_WRITE_OPTIONS options,
-	const CMDLINEINFO* lpCmdLineInfo,
-	ARCLOG &arcLog,
-	LF_COMPRESS_ARGS &args,
-	ILFProgressHandler &progressHandler,
-	std::shared_ptr<ILFPassphrase> passphraseHandler
-	)
+/// Validates compression sources against archive format capabilities
+///
+/// Some archive formats (like .gz, .bz2) only support single file compression.
+/// This function checks whether the given sources are compatible with the format.
+/// Raises exception with user-visible error if incompatible.
+///
+/// \param sources Enumerated files to compress
+/// \param format Target archive format
+/// \throws LF_EXCEPTION if format incompatibility is detected
+static void validateCompressionSources(
+	const COMPRESS_SOURCES& sources,
+	const LF_ARCHIVE_FORMAT& format)
 {
-	// get common path for base path
-	COMPRESS_SOURCES sources = buildCompressSources(args, givenFiles);
-
-	//check if the format can contain only one file
 	const auto& cap = CLFArchive::get_compression_capability(format);
 	if (!cap.contains_multiple_files) {
 		size_t fileCount = 0;
@@ -765,7 +763,6 @@ void compress_helper(
 				fileCount++;
 			}
 			if (fileCount >= 2) {
-				//warn that archiving is not supported for this file
 				ErrorMessage(UtilLoadString(IDS_ERROR_SINGLE_FILE_ONLY));
 				RAISE_EXCEPTION(UtilLoadString(IDS_ERROR_SINGLE_FILE_ONLY));
 			}
@@ -775,8 +772,26 @@ void compress_helper(
 			RAISE_EXCEPTION(UtilLoadString(IDS_ERROR_FILE_NOT_SPECIFIED));
 		}
 	}
+}
 
-	//output directory
+/// Determines where compressed archive should be created
+///
+/// Resolves output directory in following priority:
+/// 1. Command line explicit --output-dir argument
+/// 2. Parent directory of --output-file argument
+/// 3. Configuration setting (same dir, desktop, or specific dir)
+///
+/// Note: This function does NOT prompt user. Directory confirmation is handled separately.
+///
+/// \param givenFiles Files selected for compression (used for config default)
+/// \param args Configuration arguments including OutputDirType and OutputDirUserSpecified
+/// \param lpCmdLineInfo Command line parameters (can be nullptr)
+/// \return Resolved output directory path
+static std::filesystem::path determineOutputDirectory(
+	const std::vector<std::filesystem::path> &givenFiles,
+	const LF_COMPRESS_ARGS& args,
+	const CMDLINEINFO* lpCmdLineInfo)
+{
 	std::filesystem::path pathOutputDir;
 	if (lpCmdLineInfo && !lpCmdLineInfo->OutputDir.empty()) {
 		pathOutputDir = lpCmdLineInfo->OutputDir;
@@ -791,30 +806,33 @@ void compress_helper(
 				args.compress.OutputDirUserSpecified.c_str());
 		}
 	}
+	return pathOutputDir;
+}
 
-	// Warn if output is on network or on a removable disk
-	for (;;) {
-		if (LF_confirm_output_dir_type(args.general, pathOutputDir)) {
-			break;
-		} else {
-			// Need to change path
-			CLFShellFileOpenDialog dlg(pathOutputDir.c_str(), FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS);
-			if (IDOK == dlg.DoModal()) {
-				CString tmp;
-				dlg.GetFilePath(tmp);
-				pathOutputDir = tmp.operator LPCWSTR();
-				bool keepConfig = (GetKeyState(VK_SHIFT) < 0);	//TODO
-				if (keepConfig) {
-					args.compress.OutputDirType = (int)OUTPUT_TO::SpecificDir;
-					args.compress.OutputDirUserSpecified = pathOutputDir.c_str();
-				}
-			} else {
-				CANCEL_EXCEPTION();
-			}
-		}
-	}
-	// Confirm to make extract dir if it does not exist
-	LF_ask_and_make_sure_output_dir_exists(pathOutputDir, (LOSTDIR)args.general.OnDirNotFound);
+void compress_helper(
+	const std::vector<std::filesystem::path> &givenFiles,
+	LF_ARCHIVE_FORMAT format,
+	LF_WRITE_OPTIONS options,
+	const CMDLINEINFO* lpCmdLineInfo,
+	ARCLOG &arcLog,
+	LF_COMPRESS_ARGS &args,
+	ILFProgressHandler &progressHandler,
+	std::shared_ptr<ILFPassphrase> passphraseHandler
+	)
+{
+	// Get compression sources and validate them
+	COMPRESS_SOURCES sources = buildCompressSources(args, givenFiles);
+	validateCompressionSources(sources, format);
+
+	// Determine output directory (considering command line and config settings)
+	std::filesystem::path pathOutputDir = determineOutputDirectory(givenFiles, args, lpCmdLineInfo);
+
+	// Use shared utility to confirm and adjust output directory
+	pathOutputDir = LF_confirm_and_adjust_output_dir(
+		args.general,
+		pathOutputDir,
+		args.compress.OutputDirType,
+		args.compress.OutputDirUserSpecified);
 
 	//archive file title
 	std::wstring defaultArchiveTitle;
@@ -960,7 +978,9 @@ bool GUI_compress_multiple_files(
 				progressHandler,
 				std::make_shared<CLFPassphraseGUI>()
 			);
-		} catch (const LF_EXCEPTION &) {
+		} catch (const LF_EXCEPTION &ex) {
+			// Log compression error and continue with next archive
+			arcLog(L"", UtilLoadString(IDS_ARCLOG_ERROR) + L": " + UTF8_to_UNICODE(ex.what()));
 		}
 	}
 	progressHandler.end();
@@ -1147,16 +1167,24 @@ TEST(compress, RAW_FILE_READER)
 
 
 /*
-
-TEST(compress, GUI_compress_multiple_files)
-{
-	bool GUI_compress_multiple_files(
-		const std::vector<std::wstring> &givenFiles,
-		LF_ARCHIVE_FORMAT format,
-		LF_WRITE_OPTIONS options,
-		CMDLINEINFO& CmdLineInfo);
-	TODO;
-}
+// TODO: Implement test for GUI_compress_multiple_files
+// This test should verify:
+// 1. Multiple files are correctly added to archive
+// 2. Compression settings are applied correctly
+// 3. Output filename is determined correctly
+// 4. Archive is created at the specified location
+// 5. Error handling for invalid files or paths
+//
+// TEST(compress, GUI_compress_multiple_files)
+// {
+//     std::vector<std::wstring> testFiles = { L"file1.txt", L"file2.txt" };
+//     LF_ARCHIVE_FORMAT format = LF_ARCHIVE_FORMAT::ZIP;
+//     LF_WRITE_OPTIONS options;
+//     CMDLINEINFO cmdLine;
+//
+//     bool result = GUI_compress_multiple_files(testFiles, format, options, cmdLine);
+//     EXPECT_TRUE(result);
+// }
 */
 
 TEST(compress, copyArchive)	//or maybe test for CLFArchive

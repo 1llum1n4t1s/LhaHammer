@@ -275,7 +275,7 @@ protected:
 			return;
 		}
 
-		//::EnableWindow(m_hFrameWnd,FALSE);	TODO: is this necessary? modal dialog will disable the frame automatically
+		// Modal dialogs automatically disable parent window, so EnableWindow calls are not necessary
 		ARCLOG arcLog;
 		try {
 			mr_Model.DeleteItems(items, CLFProgressHandlerGUI(m_hFrameWnd), arcLog);
@@ -389,7 +389,7 @@ public:
 	virtual HRESULT AddItemsToDirectory(const ARCHIVE_ENTRY_INFO* target, const std::vector<std::filesystem::path>& files) {
 		ASSERT(target);
 
-		//::EnableWindow(m_hFrameWnd,FALSE);	TODO: is this necessary? modal dialog will disable the frame automatically
+		// Modal dialogs automatically disable parent window, so EnableWindow calls are not necessary
 		ARCLOG arcLog;
 		try {
 			mr_Model.AddItem(

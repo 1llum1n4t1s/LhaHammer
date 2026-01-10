@@ -1171,8 +1171,9 @@ std::unique_ptr<ILFArchiveFile> CLFArchiveLA::make_copy_archive(
 					dest_archive->_arc_write->add_directory(*entry);
 				} else {
 					dest_archive->_arc_write->add_entry(*entry, [&]() {
-						while (UtilDoMessageLoop())continue;	//TODO
-						//TODO progress handler
+						// Keep message loop responsive during data copy
+						while (UtilDoMessageLoop())continue;
+						// Note: Progress handler could be integrated here for better feedback
 						LF_BUFFER_INFO bi;
 						_arc_read->read_block([&](const void* buf, int64_t size, const offset_info* offset) {
 							bi.buffer = buf;

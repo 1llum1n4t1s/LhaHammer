@@ -39,7 +39,7 @@ std::filesystem::path LF_GET_OUTPUT_DIR_DEFAULT_CALLBACK::operator()()
 		CLFShellFileOpenDialog dlg(_default_path.c_str(), FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS);
 		if (IDOK == dlg.DoModal()) {
 			if (GetKeyState(VK_SHIFT) < 0) {
-				//TODO: is this operation is suitable?
+				// User pressed Shift key to remember this selection and skip future dialogs
 				_skip_user_input = true;
 			}
 			CString tmp;
@@ -707,4 +707,45 @@ overwrite_options CLFOverwriteInArchiveConfirmGUI::operator()(
 	} else {
 		return defaultDecision;
 	}
+}
+
+// Shared utility for output directory confirmation and user adjustment
+// Reduces code duplication between extract and compress operations
+std::filesystem::path LF_confirm_and_adjust_output_dir(
+	const CConfigGeneral &generalConfig,
+	std::filesystem::path& currentOutputDir,
+	int& outputDirType,
+	std::wstring& outputDirUserSpecified)
+{
+	std::filesystem::path outputDir = currentOutputDir;
+
+	// Warn if output is on network or removable disk
+	for (;;) {
+		if (LF_confirm_output_dir_type(generalConfig, outputDir)) {
+			break;
+		} else {
+			// User declined current directory, let them choose another
+			CLFShellFileOpenDialog dlg(outputDir.c_str(),
+				FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST | FOS_PICKFOLDERS);
+			if (IDOK == dlg.DoModal()) {
+				CString tmp;
+				dlg.GetFilePath(tmp);
+				std::filesystem::path pathOutputDir = tmp.operator LPCWSTR();
+				outputDir = pathOutputDir;
+
+				// If Shift key is held, save this directory as the default for future operations
+				bool keepConfig = (GetKeyState(VK_SHIFT) < 0);
+				if (keepConfig) {
+					outputDirType = (int)OUTPUT_TO::SpecificDir;
+					outputDirUserSpecified = pathOutputDir.c_str();
+				}
+			} else {
+				CANCEL_EXCEPTION();
+			}
+		}
+	}
+
+	// Ensure output directory exists
+	LF_ask_and_make_sure_output_dir_exists(outputDir, (LOSTDIR)generalConfig.OnDirNotFound);
+	return outputDir;
 }
