@@ -1,9 +1,9 @@
-# LhaForge2
+# LhaHammer
 
-LhaForge2は、Windows用の高機能な圧縮・解凍ソフトウェアです。複数の圧縮形式に対応し、圧縮解凍エンジンを内蔵しており、単体で動作可能です。エクスプローラーのコンテキストメニューや右ドラッグメニューに対応し、幅広い使い方が可能です。
+LhaHammerは、Windows用の高機能な圧縮・解凍ソフトウェアです。複数の圧縮形式に対応し、圧縮解凍エンジンを内蔵しており、単体で動作可能です。エクスプローラーのコンテキストメニューや右ドラッグメニューに対応し、幅広い使い方が可能です。
 
 **ライセンス:** MIT License
-**著作権:** Copyright (c) 2005- Claybird
+**著作権:** Copyright (c) 2024- ゆろち
 
 ## 🌟 主な特徴
 
@@ -72,7 +72,7 @@ cd lhaforge
 
 2. Visual Studioでソリューションを開く
 ```bash
-LhaForge.sln
+LhaHammer.sln
 ```
 
 3. 依存ライブラリをビルド
@@ -81,43 +81,43 @@ cd dependency
 # 各サブプロジェクトをビルド
 ```
 
-4. LhaForgeプロジェクトをビルド
+4. LhaHammerプロジェクトをビルド
    - Visual Studioのメニューから「Build > Build Solution」を実行
 
 ### 出力バイナリ
 
 ビルド完了後、以下の場所に実行可能ファイルが生成されます：
 ```
-bin/Release/LhaForge.exe
-bin/Debug/LhaForge.exe
+bin/Release/LhaHammer.exe
+bin/Debug/LhaHammer.exe
 ```
 
 ## 🚀 使用方法
 
 ### GUI起動
 
-1. `LhaForge.exe` をダブルクリック
+1. `LhaHammer.exe` をダブルクリック
 2. メニューバーから「ファイル」→「開く」で圧縮ファイルを選択
 3. 目的のアクション（抽出、テスト、表示）を実行
 
 ### エクスプローラー統合
 
 1. ファイルまたはフォルダを右クリック
-2. コンテキストメニューから「LhaForge」を選択
+2. コンテキストメニューから「LhaHammer」を選択
 3. 圧縮または解凍を実行
 
 ### コマンドライン使用
 
-LhaForge2はコマンドライン引数もサポートしています。詳細は `--help` オプションを参照してください：
+LhaHammerはコマンドライン引数もサポートしています。詳細は `--help` オプションを参照してください：
 
 ```bash
-LhaForge.exe --help
+LhaHammer.exe --help
 ```
 
 ## 📁 プロジェクト構造
 
 ```
-LhaForge/
+LhaHammer/
 ├── main.cpp                 # メインプログラム
 ├── compress.cpp/h           # 圧縮機能
 ├── extract.cpp/h            # 解凍機能
@@ -230,5 +230,5 @@ icons/                       # アプリケーションアイコン
 
 ---
 
-**LhaForge2** - Windows用圧縮解凍ソフト
-Made with ❤️ by Claybird and contributors
+**LhaHammer** - Windows用圧縮解凍ソフト
+Made with ❤️ by ゆろち
