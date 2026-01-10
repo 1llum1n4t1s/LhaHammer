@@ -1,0 +1,172 @@
+<Window x:Class="LhaHammer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="LhaHammer - Archive Manager"
+        Height="600"
+        Width="900"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open Archive..." Command="{Binding OpenArchiveCommand}"/>
+                <MenuItem Header="_Create Archive..." Command="{Binding CreateArchiveCommand}"/>
+                <Separator/>
+                <MenuItem Header="Recent Files" ItemsSource="{Binding RecentFiles}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem">
+                            <Setter Property="Header" Value="{Binding}"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Extract Selected..." Command="{Binding ExtractSelectedCommand}"/>
+                <MenuItem Header="Extract _All..." Command="{Binding ExtractAllCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Test Archive" Command="{Binding TestArchiveCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Settings..." Command="{Binding OpenSettingsCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About LhaHammer"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <ToolBar DockPanel.Dock="Top" Height="40">
+            <Button Content="Open"
+                    Command="{Binding OpenArchiveCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="Open Archive"/>
+            <Button Content="Create"
+                    Command="{Binding CreateArchiveCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="Create New Archive"/>
+            <Separator/>
+            <Button Content="Extract"
+                    Command="{Binding ExtractAllCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="Extract All Files"/>
+            <Button Content="Extract Selected"
+                    Command="{Binding ExtractSelectedCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="Extract Selected Files"/>
+            <Separator/>
+            <Button Content="Test"
+                    Command="{Binding TestArchiveCommand}"
+                    Style="{StaticResource ToolbarButtonStyle}"
+                    ToolTip="Test Archive Integrity"/>
+        </ToolBar>
+
+        <!-- Status Bar -->
+        <StatusBar DockPanel.Dock="Bottom" Height="25">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Files: "/>
+                    <TextBlock Text="{Binding Entries.Count}"/>
+                    <TextBlock Text=" | " Margin="5,0"/>
+                    <TextBlock Text="Size: "/>
+                    <TextBlock Text="{Binding CurrentArchive.TotalSize, StringFormat={}{0:N0} bytes}"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Main Content -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Search Bar -->
+            <Grid Grid.Row="0" Margin="5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                          Text="Search:"
+                          VerticalAlignment="Center"
+                          Margin="0,0,5,0"/>
+                <TextBox Grid.Column="1"
+                        Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- File List -->
+            <DataGrid Grid.Row="1"
+                     ItemsSource="{Binding Entries}"
+                     SelectedItem="{Binding SelectedEntries}"
+                     AutoGenerateColumns="False"
+                     SelectionMode="Extended"
+                     CanUserAddRows="False"
+                     CanUserDeleteRows="False"
+                     IsReadOnly="True"
+                     GridLinesVisibility="Horizontal"
+                     AlternatingRowBackground="#F5F5F5"
+                     Margin="5">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Name"
+                                       Binding="{Binding FileName}"
+                                       Width="*"/>
+                    <DataGridTextColumn Header="Size"
+                                       Binding="{Binding Size, StringFormat={}{0:N0}}"
+                                       Width="100"/>
+                    <DataGridTextColumn Header="Packed"
+                                       Binding="{Binding CompressedSize, StringFormat={}{0:N0}}"
+                                       Width="100"/>
+                    <DataGridTextColumn Header="Ratio"
+                                       Binding="{Binding CompressionRatio, StringFormat={}{0}%}"
+                                       Width="60"/>
+                    <DataGridTextColumn Header="Date"
+                                       Binding="{Binding LastModified, StringFormat=yyyy-MM-dd HH:mm}"
+                                       Width="130"/>
+                    <DataGridTextColumn Header="Path"
+                                       Binding="{Binding Path}"
+                                       Width="*"/>
+                    <DataGridTextColumn Header="CRC"
+                                       Binding="{Binding Crc32, StringFormat=X8}"
+                                       Width="80"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- Loading Overlay -->
+            <Grid Grid.Row="1"
+                  Background="#80000000"
+                  Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center"
+                           VerticalAlignment="Center">
+                    <ProgressBar IsIndeterminate="True"
+                               Width="200"
+                               Height="20"/>
+                    <TextBlock Text="{Binding StatusMessage}"
+                             Foreground="White"
+                             Margin="0,10,0,0"
+                             HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>
