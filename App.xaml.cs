@@ -8,43 +8,77 @@ using LhaHammer.Views;
 
 namespace LhaHammer;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private ServiceProvider? _serviceProvider;
 
-    protected override async void OnStartup(StartupEventArgs e)
+    /// <summary>
+    /// メソッド: アプリケーション起動時の処理
+    /// </summary>
+    /// <param name="sender">パラメーター: イベント送信者</param>
+    /// <param name="e">パラメーター: スタートアップイベント引数</param>
+    private void OnApplicationStartup(object sender, StartupEventArgs e)
     {
-        base.OnStartup(e);
-
-        var serviceCollection = new ServiceCollection();
-        ConfigureServices(serviceCollection);
-        _serviceProvider = serviceCollection.BuildServiceProvider();
-
-        // Handle command-line arguments
-        if (e.Args.Length > 0)
+        try
         {
-            var commandLineHandler = new CommandLineHandler(
-                _serviceProvider.GetRequiredService<IArchiveService>(),
-                _serviceProvider.GetRequiredService<IConfigurationService>());
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            _serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var exitCode = await commandLineHandler.ProcessCommandLineAsync(e.Args);
-
-            if (exitCode >= 0)
+            // Handle command-line arguments
+            if (e.Args.Length > 0)
             {
-                // Command-line mode - exit with code
-                Environment.Exit(exitCode);
+                var commandLineHandler = new CommandLineHandler(
+                    _serviceProvider.GetRequiredService<IArchiveService>(),
+                    _serviceProvider.GetRequiredService<IConfigurationService>());
+
+                _ = HandleCommandLineAsync(commandLineHandler, e.Args);
                 return;
             }
-            // exitCode == -1 means launch GUI (file path provided or default)
-        }
 
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-        mainWindow.Show();
+            ShowMainWindow();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show($"アプリケーション起動エラー: {ex.Message}\n\n{ex.StackTrace}", "エラー");
+            Environment.Exit(1);
+        }
+    }
+
+    /// <summary>
+    /// メソッド: コマンドライン引数を非同期で処理する
+    /// </summary>
+    /// <param name="commandLineHandler">パラメーター: コマンドラインハンドラー</param>
+    /// <param name="args">パラメーター: コマンドライン引数</param>
+    private async Task HandleCommandLineAsync(CommandLineHandler commandLineHandler, string[] args)
+    {
+        var exitCode = await commandLineHandler.ProcessCommandLineAsync(args);
+
+        if (exitCode >= 0)
+        {
+            Environment.Exit(exitCode);
+        }
+        else
+        {
+            ShowMainWindow();
+        }
+    }
+
+    /// <summary>
+    /// メソッド: メインウィンドウを表示する
+    /// </summary>
+    private void ShowMainWindow()
+    {
+        var mainWindow = _serviceProvider?.GetRequiredService<MainWindow>();
+        if (mainWindow != null)
+        {
+            mainWindow.Show();
+        }
     }
 
     private void ConfigureServices(IServiceCollection services)
     {
-        // Register services
+        // メソッド: サービスを登録する
         services.AddSingleton<IArchiveService, ArchiveService>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<IFileOperationService, FileOperationService>();

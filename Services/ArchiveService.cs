@@ -93,7 +93,7 @@ public class ArchiveService : IArchiveService
                 EntryCount = entryCount,
                 IsEncrypted = isEncrypted,
                 IsSolid = archive.IsSolid,
-                IsMultiVolume = archive.IsMultiVolume
+                IsMultiVolume = false
             };
         });
     }
@@ -117,7 +117,7 @@ public class ArchiveService : IArchiveService
                     IsDirectory = entry.IsDirectory,
                     IsEncrypted = entry.IsEncrypted,
                     Crc32 = (uint)(entry.Crc),
-                    CompressionMethod = entry.CompressionType?.ToString() ?? "Unknown"
+                    CompressionMethod = entry.CompressionType.ToString()
                 });
             }
 
@@ -416,11 +416,7 @@ public class ArchiveService : IArchiveService
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
 
-                                if (entry.IsDirectory)
-                                {
-                                    writer.WriteDirectory(entry.Key);
-                                }
-                                else
+                                if (!entry.IsDirectory && entry.Key != null)
                                 {
                                     using (var entryStream = entry.OpenEntryStream())
                                     {
@@ -475,7 +471,7 @@ public class ArchiveService : IArchiveService
                     File.Delete(archivePath);
                     File.Move(tempPath, archivePath);
                 }
-                catch (Exception ex)
+                catch
                 {
                     if (File.Exists(tempPath))
                         File.Delete(tempPath);
@@ -552,6 +548,9 @@ public class ArchiveService : IArchiveService
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
 
+                                if (entry.Key == null)
+                                    continue;
+
                                 // Skip entries that should be deleted
                                 if (entriesToDelete.Contains(entry.Key))
                                 {
@@ -562,11 +561,7 @@ public class ArchiveService : IArchiveService
 
                                 try
                                 {
-                                    if (entry.IsDirectory)
-                                    {
-                                        writer.WriteDirectory(entry.Key);
-                                    }
-                                    else
+                                    if (!entry.IsDirectory && entry.Key != null)
                                     {
                                         using (var entryStream = entry.OpenEntryStream())
                                         {
@@ -597,7 +592,7 @@ public class ArchiveService : IArchiveService
                     File.Delete(archivePath);
                     File.Move(tempPath, archivePath);
                 }
-                catch (Exception ex)
+                catch
                 {
                     if (File.Exists(tempPath))
                         File.Delete(tempPath);

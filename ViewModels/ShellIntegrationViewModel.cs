@@ -5,6 +5,8 @@ using CommunityToolkit.Mvvm.Input;
 using LhaHammer.Models;
 using LhaHammer.ShellIntegration;
 
+using MessageBox = System.Windows.MessageBox;
+
 namespace LhaHammer.ViewModels;
 
 public partial class ShellIntegrationViewModel : ObservableObject

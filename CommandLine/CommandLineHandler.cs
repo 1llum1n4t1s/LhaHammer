@@ -1,3 +1,4 @@
+using System.IO;
 using LhaHammer.Models;
 using LhaHammer.Services;
 

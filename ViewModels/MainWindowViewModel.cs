@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LhaHammer.Models;
 using LhaHammer.Services;
 using Microsoft.Win32;
+using Forms = System.Windows.Forms;
 
 namespace LhaHammer.ViewModels;
 
@@ -52,7 +54,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenArchiveAsync()
     {
-        var dialog = new OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Filter = "All Archives|*.zip;*.7z;*.rar;*.tar;*.gz;*.bz2;*.xz;*.lzh|" +
                     "ZIP Archives|*.zip|" +
@@ -72,7 +74,7 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateArchiveAsync()
     {
-        var dialog = new SaveFileDialog
+        var dialog = new Microsoft.Win32.SaveFileDialog
         {
             Filter = "ZIP Archive|*.zip|7-Zip Archive|*.7z|TAR Archive|*.tar",
             Title = "Create Archive",
@@ -81,8 +83,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         if (dialog.ShowDialog() == true)
         {
-            // Show file selection dialog and create archive
-            var fileDialog = new OpenFileDialog
+            var fileDialog = new Microsoft.Win32.OpenFileDialog
             {
                 Multiselect = true,
                 Title = "Select files to compress"
@@ -101,22 +102,10 @@ public partial class MainWindowViewModel : ObservableObject
         if (string.IsNullOrEmpty(CurrentArchivePath) || SelectedEntries.Count == 0)
             return;
 
-        var dialog = new Microsoft.Win32.SaveFileDialog
+        var outputPath = SelectOutputDirectory();
+        if (!string.IsNullOrEmpty(outputPath))
         {
-            Title = "Select Output Directory",
-            FileName = "Select Folder"
-        };
-
-        // Workaround to select folder
-        var folderBrowser = new System.Windows.Forms.FolderBrowserDialog
-        {
-            Description = "Select extraction directory",
-            ShowNewFolderButton = true
-        };
-
-        if (folderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-        {
-            await ExtractArchiveAsync(folderBrowser.SelectedPath,
+            await ExtractArchiveAsync(outputPath,
                 SelectedEntries.Select(e => e.Path).ToArray());
         }
     }
@@ -127,16 +116,28 @@ public partial class MainWindowViewModel : ObservableObject
         if (string.IsNullOrEmpty(CurrentArchivePath))
             return;
 
-        var folderBrowser = new System.Windows.Forms.FolderBrowserDialog
+        var outputPath = SelectOutputDirectory();
+        if (!string.IsNullOrEmpty(outputPath))
+        {
+            await ExtractArchiveAsync(outputPath);
+        }
+    }
+
+    /// <summary>
+    /// フォルダ選択ダイアログを表示するメソッド
+    /// </summary>
+    /// <returns>選択されたフォルダパス、キャンセルされた場合はnull</returns>
+    private string? SelectOutputDirectory()
+    {
+        using var folderBrowser = new Forms.FolderBrowserDialog
         {
             Description = "Select extraction directory",
             ShowNewFolderButton = true
         };
 
-        if (folderBrowser.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-        {
-            await ExtractArchiveAsync(folderBrowser.SelectedPath);
-        }
+        return folderBrowser.ShowDialog() == Forms.DialogResult.OK
+            ? folderBrowser.SelectedPath
+            : null;
     }
 
     [RelayCommand]
