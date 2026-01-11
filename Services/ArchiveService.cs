@@ -381,22 +381,258 @@ public class ArchiveService : IArchiveService
         }
     }
 
-    public Task<OperationResult> AddFilesAsync(
+    public async Task<OperationResult> AddFilesAsync(
         string archivePath,
         string[] filePaths,
         IProgress<OperationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException("Adding files to existing archives is not yet implemented");
+        var errors = new List<string>();
+        var processedFiles = new List<string>();
+        var startTime = DateTime.Now;
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                var tempPath = archivePath + ".tmp";
+                var format = DetectFormatAsync(archivePath).Result;
+
+                try
+                {
+                    var writerOptions = new WriterOptions(GetCompressionType(format))
+                    {
+                        LeaveStreamOpen = false,
+                        ArchiveEncoding = new ArchiveEncoding { Default = System.Text.Encoding.UTF8 }
+                    };
+
+                    using (var tempStream = File.Create(tempPath))
+                    using (var writer = WriterFactory.Open(tempStream, GetArchiveType(format), writerOptions))
+                    {
+                        // Copy existing entries from the original archive
+                        using (var archive = ArchiveFactory.Open(archivePath))
+                        {
+                            foreach (var entry in archive.Entries)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+
+                                if (entry.IsDirectory)
+                                {
+                                    writer.WriteDirectory(entry.Key);
+                                }
+                                else
+                                {
+                                    using (var entryStream = entry.OpenEntryStream())
+                                    {
+                                        writer.Write(entry.Key, entryStream);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Add new files
+                        long totalBytes = filePaths.Sum(f => new FileInfo(f).Length);
+                        long processedBytes = 0;
+
+                        foreach (var filePath in filePaths)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            try
+                            {
+                                if (!File.Exists(filePath))
+                                {
+                                    errors.Add($"{filePath}: File not found");
+                                    continue;
+                                }
+
+                                var relativePath = GetRelativePath(filePaths[0], filePath);
+                                writer.Write(relativePath, filePath);
+
+                                processedFiles.Add(filePath);
+                                processedBytes += new FileInfo(filePath).Length;
+
+                                progress?.Report(new OperationProgress
+                                {
+                                    OperationType = OperationType.Add,
+                                    CurrentFile = filePath,
+                                    ProcessedBytes = processedBytes,
+                                    TotalBytes = totalBytes,
+                                    ProcessedFiles = processedFiles.Count,
+                                    TotalFiles = filePaths.Length,
+                                    ElapsedTime = DateTime.Now - startTime,
+                                    StatusMessage = $"Adding: {Path.GetFileName(filePath)}"
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                errors.Add($"{filePath}: {ex.Message}");
+                            }
+                        }
+                    }
+
+                    // Replace original archive with updated one
+                    File.Delete(archivePath);
+                    File.Move(tempPath, archivePath);
+                }
+                catch (Exception ex)
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                    throw;
+                }
+            }, cancellationToken);
+
+            return new OperationResult
+            {
+                Success = errors.Count == 0,
+                Message = errors.Count == 0 ? "Files added successfully" : $"Adding files completed with {errors.Count} errors",
+                ProcessedFiles = processedFiles,
+                Errors = errors
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Adding files cancelled by user",
+                ProcessedFiles = processedFiles,
+                Errors = errors
+            };
+        }
+        catch (Exception ex)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = $"Adding files failed: {ex.Message}",
+                Exception = ex,
+                Errors = errors
+            };
+        }
     }
 
-    public Task<OperationResult> DeleteFilesAsync(
+    public async Task<OperationResult> DeleteFilesAsync(
         string archivePath,
         string[] entryPaths,
         IProgress<OperationProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException("Deleting files from archives is not yet implemented");
+        var errors = new List<string>();
+        var processedFiles = new List<string>();
+        var startTime = DateTime.Now;
+        var entriesToDelete = new HashSet<string>(entryPaths);
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                var tempPath = archivePath + ".tmp";
+                var format = DetectFormatAsync(archivePath).Result;
+
+                try
+                {
+                    var writerOptions = new WriterOptions(GetCompressionType(format))
+                    {
+                        LeaveStreamOpen = false,
+                        ArchiveEncoding = new ArchiveEncoding { Default = System.Text.Encoding.UTF8 }
+                    };
+
+                    using (var tempStream = File.Create(tempPath))
+                    using (var writer = WriterFactory.Open(tempStream, GetArchiveType(format), writerOptions))
+                    {
+                        // Copy entries that should not be deleted
+                        using (var archive = ArchiveFactory.Open(archivePath))
+                        {
+                            var entries = archive.Entries.ToList();
+                            int processedCount = 0;
+
+                            foreach (var entry in entries)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+
+                                // Skip entries that should be deleted
+                                if (entriesToDelete.Contains(entry.Key))
+                                {
+                                    processedFiles.Add(entry.Key);
+                                    processedCount++;
+                                    continue;
+                                }
+
+                                try
+                                {
+                                    if (entry.IsDirectory)
+                                    {
+                                        writer.WriteDirectory(entry.Key);
+                                    }
+                                    else
+                                    {
+                                        using (var entryStream = entry.OpenEntryStream())
+                                        {
+                                            writer.Write(entry.Key, entryStream);
+                                        }
+                                    }
+
+                                    processedCount++;
+                                    progress?.Report(new OperationProgress
+                                    {
+                                        OperationType = OperationType.Delete,
+                                        CurrentFile = entry.Key ?? string.Empty,
+                                        ProcessedFiles = processedCount,
+                                        TotalFiles = entries.Count,
+                                        ElapsedTime = DateTime.Now - startTime,
+                                        StatusMessage = $"Processing: {entry.Key}"
+                                    });
+                                }
+                                catch (Exception ex)
+                                {
+                                    errors.Add($"{entry.Key}: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+
+                    // Replace original archive with updated one
+                    File.Delete(archivePath);
+                    File.Move(tempPath, archivePath);
+                }
+                catch (Exception ex)
+                {
+                    if (File.Exists(tempPath))
+                        File.Delete(tempPath);
+                    throw;
+                }
+            }, cancellationToken);
+
+            return new OperationResult
+            {
+                Success = errors.Count == 0,
+                Message = errors.Count == 0 ? "Files deleted successfully" : $"Deleting files completed with {errors.Count} errors",
+                ProcessedFiles = processedFiles,
+                Errors = errors
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = "Deleting files cancelled by user",
+                ProcessedFiles = processedFiles,
+                Errors = errors
+            };
+        }
+        catch (Exception ex)
+        {
+            return new OperationResult
+            {
+                Success = false,
+                Message = $"Deleting files failed: {ex.Message}",
+                Exception = ex,
+                Errors = errors
+            };
+        }
     }
 
     public async Task<ArchiveFormat> DetectFormatAsync(string filePath)
