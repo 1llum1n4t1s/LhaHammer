@@ -1,5 +1,0 @@
-ファイル1.txt
-"C:\program files\b.txt"
-
-ファイル3.doc
-#d.exe
